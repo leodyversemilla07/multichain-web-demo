@@ -1,4 +1,5 @@
 <?php
+
 	define('const_update_custom_fields', 5);
 	
 	$max_upload_size=multichain_max_data_size()-512; // take off space for file name and mime type
@@ -84,181 +85,279 @@
 	}
 ?>
 
-			<div class="row">
-
-				<div class="col-sm-4">
-					<h3>My Open Issued Assets</h3>
-			
+<div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+    <!-- Left Column - Asset Listings -->
+    <div class="md:col-span-5">
+        <div class="bg-white rounded-lg shadow-card overflow-hidden">
+            <div class="bg-gradient-primary p-4 text-white">
+                <h3 class="text-xl font-mono font-medium m-0 flex items-center">
+                    <i class="fas fa-coins mr-2"></i> My Open Issued Assets
+                </h3>
+            </div>
+            <div class="p-4 space-y-5">
 <?php
-	if (no_displayed_error_result($listassets, multichain('listassets', '*', true))) {
-
-		foreach ($listassets as $asset) {
-			$name=$asset['name'];
-			$issuer=$asset['issues'][0]['issuers'][0];
-			
-			if (!($asset['open'] && @$keymyaddresses[$issuer]))
-				continue;
+    if (no_displayed_error_result($listassets, multichain('listassets', '*', true))) {
+        $hasAssets = false;
+        
+        foreach ($listassets as $asset) {
+            $name=$asset['name'];
+            $issuer=$asset['issues'][0]['issuers'][0];
+            
+            if (!($asset['open'] && @$keymyaddresses[$issuer]))
+                continue;
+                
+            $hasAssets = true;
 ?>
-						<table class="table table-bordered table-condensed table-break-words <?php echo ($success && ($name==@$_POST['name'])) ? 'bg-success' : 'table-striped'?>">
-							<tr>
-								<th style="width:30%;">Name</th>
-								<td><?php echo html($name)?> <?php echo $asset['open'] ? '' : '(closed)'?></td>
-							</tr>
-							<tr>
-								<th>Quantity</th>
-								<td><?php echo html($asset['issueqty'])?></td>
-							</tr>
-							<tr>
-								<th>Units</th>
-								<td><?php echo html($asset['units'])?></td>
-							</tr>
-							<tr>
-								<th>Issuer</th>
-								<td class="td-break-words small"><?php echo format_address_html($issuer, @$keymyaddresses[$issuer], $labels)?></td>
-							</tr>
+                <div class="bg-white rounded-lg border <?php echo ($success && ($name==@$_POST['name'])) ? 'border-green-500 bg-green-50' : 'border-gray-200' ?> overflow-hidden">
+                    <div class="bg-gray-50 py-2 px-4 border-b border-gray-200">
+                        <h4 class="font-mono text-lg font-medium text-gray-800 m-0 flex items-center">
+                            <?php echo html($name)?>
+                            <?php if($asset['open']): ?>
+                                <span class="ml-2 text-xs bg-green-500 text-white px-2 py-1 rounded-full">Open</span>
+                            <?php else: ?>
+                                <span class="ml-2 text-xs bg-gray-500 text-white px-2 py-1 rounded-full">Closed</span>
+                            <?php endif; ?>
+                        </h4>
+                    </div>
+                    
+                    <div class="divide-y divide-gray-200">
+                        <div class="flex py-2 px-4">
+                            <div class="w-1/3 font-medium text-gray-600">Quantity</div>
+                            <div class="w-2/3 font-mono"><?php echo html($asset['issueqty'])?></div>
+                        </div>
+                        
+                        <div class="flex py-2 px-4">
+                            <div class="w-1/3 font-medium text-gray-600">Units</div>
+                            <div class="w-2/3 font-mono"><?php echo html($asset['units'])?></div>
+                        </div>
+                        
+                        <div class="flex py-2 px-4">
+                            <div class="w-1/3 font-medium text-gray-600">Issuer</div>
+                            <div class="w-2/3">
+                                <span class="hash-value"><?php echo format_address_html($issuer, @$keymyaddresses[$issuer], $labels)?></span>
+                            </div>
+                        </div>
 <?php
-			$details=array();
-			$detailshistory=array();
-			
-			foreach ($asset['issues'] as $issue)
-				foreach ($issue['details'] as $key => $value) {
-					$detailshistory[$key][$issue['txid']]=$value;
-					$details[$key]=$value;
-				}
+            $details=array();
+            $detailshistory=array();
+            
+            foreach ($asset['issues'] as $issue)
+                foreach ($issue['details'] as $key => $value) {
+                    $detailshistory[$key][$issue['txid']]=$value;
+                    $details[$key]=$value;
+                }
 
-			if (@count(@$detailshistory['@file'])) {
+            if (@count(@$detailshistory['@file'])) {
 ?>
-							<tr>
-								<th>File:</th>
-								<td><?php
-								
-				$countoutput=0;
-				$countprevious=count($detailshistory['@file'])-1;
+                        <div class="flex py-2 px-4">
+                            <div class="w-1/3 font-medium text-gray-600">File</div>
+                            <div class="w-2/3">
+<?php
+                $countoutput=0;
+                $countprevious=count($detailshistory['@file'])-1;
 
-				foreach ($detailshistory['@file'] as $txid => $string) {
-					$fileref=string_to_fileref($string);
-					if (is_array($fileref)) {
-					
-						$file_name=$fileref['filename'];
-						$file_size=$fileref['filesize'];
-						
-						if ($countoutput==1) // first previous version
-							echo '<br/><small>('.$countprevious.' previous '.(($countprevious>1) ? 'files' : 'file').': ';
-						
-						echo '<a href="./download-file.php?chain='.html($_GET['chain']).'&txid='.html($txid).'&vout='.html($fileref['vout']).'">'.
-							(strlen($file_name) ? html($file_name) : 'Download').
-							'</a>'.
-							( ($file_size && !$countoutput) ? html(' ('.number_format(ceil($file_size/1024)).' KB)') : '');
-						
-						$countoutput++;
-					}
-				}
-				
-				if ($countoutput>1)
-					echo ')</small>';
-								
-								?></td>
-							</tr>	
+                foreach ($detailshistory['@file'] as $txid => $string) {
+                    $fileref=string_to_fileref($string);
+                    if (is_array($fileref)) {
+                    
+                        $file_name=$fileref['filename'];
+                        $file_size=$fileref['filesize'];
+                        
+                        if ($countoutput==1) // first previous version
+                            echo '<div class="mt-2 text-sm text-gray-500">('.$countprevious.' previous '.(($countprevious>1) ? 'files' : 'file').': ';
+                        
+                        echo '<a href="./download-file.php?chain='.html($_GET['chain']).'&txid='.html($txid).'&vout='.html($fileref['vout']).'" class="text-blockchain-primary hover:underline">'.
+                            (strlen($file_name) ? html($file_name) : 'Download').
+                            '</a>'.
+                            ( ($file_size && !$countoutput) ? html(' ('.number_format(ceil($file_size/1024)).' KB)') : '');
+                        
+                        $countoutput++;
+                    }
+                }
+                
+                if ($countoutput>1)
+                    echo ')</div>';
+?>
+                            </div>
+                        </div>
 <?php
-			}
+            }
 
-			foreach ($details as $key => $value) {
-				if ($key=='@file')
-					continue;
+            foreach ($details as $key => $value) {
+                if ($key=='@file')
+                    continue;
 ?>
-							<tr>
-								<th><?php echo html($key)?></th>
-								<td><?php echo html($value)?><?php
-								
-				if (count($detailshistory[$key])>1)
-					echo '<br/><small>(previous values: '.html(implode(', ', array_slice(array_reverse($detailshistory[$key]), 1))).')</small>';
-				
-								?></td>
-							</tr>
+                        <div class="flex py-2 px-4">
+                            <div class="w-1/3 font-medium text-gray-600"><?php echo html($key)?></div>
+                            <div class="w-2/3">
+                                <?php echo html($value)?>
+                                <?php if(count($detailshistory[$key])>1): ?>
+                                    <div class="mt-1 text-sm text-gray-500">
+                                        Previous values: <?php echo html(implode(', ', array_slice(array_reverse($detailshistory[$key]), 1))) ?>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+                        </div>
 <?php
-			}
-?>							
-						</table>
-<?php
-		}
-	}
+            }
 ?>
-				</div>
-				
-				<div class="col-sm-8">
-					<h3>Update Asset</h3>
-					
-					<form class="form-horizontal" method="post" enctype="multipart/form-data" action="./?chain=<?php echo html($_GET['chain'])?>&page=<?php echo html($_GET['page'])?>">
-						<div class="form-group">
-							<label for="issuetxid" class="col-sm-2 control-label">Asset:</label>
-							<div class="col-sm-9">
-							<select class="form-control col-sm-6" name="issuetxid" id="issuetxid">
+                    </div>
+                </div>
 <?php
-	foreach ($listassets as $asset) {
-		$issuer=$asset['issues'][0]['issuers'][0];
+        }
+        
+        if (!$hasAssets) {
+?>
+                <div class="bg-gray-50 border border-gray-200 rounded-lg p-6 text-center">
+                    <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gray-200 text-gray-500 mb-3">
+                        <i class="fas fa-info"></i>
+                    </div>
+                    <h4 class="text-gray-700 font-medium mb-2">No Open Assets Found</h4>
+                    <p class="text-gray-500 text-sm">You don't have any open issued assets to update. Issue new assets first.</p>
+                </div>
+<?php
+        }
+    }
+?>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Right Column - Update Form -->
+    <div class="md:col-span-7">
+        <div class="bg-white rounded-lg shadow-card overflow-hidden">
+            <div class="bg-gradient-primary p-4 text-white">
+                <h3 class="text-xl font-mono font-medium m-0 flex items-center">
+                    <i class="fas fa-edit mr-2"></i> Update Asset
+                </h3>
+            </div>
+            
+            <div class="p-6">
+                <form method="post" enctype="multipart/form-data" action="./?chain=<?php echo html($_GET['chain'])?>&page=<?php echo html($_GET['page'])?>">
+                    <!-- Asset Selection -->
+                    <div class="mb-6">
+                        <label for="issuetxid" class="block text-sm font-medium text-gray-700 mb-1">Asset to Update</label>
+                        <div class="relative">
+                            <select name="issuetxid" id="issuetxid" class="form-select block w-full pl-10 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blockchain-primary focus:border-blockchain-primary rounded-md shadow-sm">
+<?php
+    foreach ($listassets as $asset) {
+        $issuer=$asset['issues'][0]['issuers'][0];
 
-		if (($asset['open'] && @$keymyaddresses[$issuer])) {
+        if (($asset['open'] && @$keymyaddresses[$issuer])) {
 ?>
-								<option value="<?php echo html($asset['issuetxid'])?>"><?php echo html($asset['name'])?></option>
+                                <option value="<?php echo html($asset['issuetxid'])?>"><?php echo html($asset['name'])?></option>
 <?php
-		}
-	}
+        }
+    }
 ?>
-							</select>
-							</div>
-						</div>
+                            </select>
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <i class="fas fa-coins text-gray-400"></i>
+                            </div>
+                            <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                <i class="fas fa-chevron-down text-gray-400"></i>
+                            </div>
+                        </div>
+                    </div>
 
-						<div class="form-group">
-							<label for="qty" class="col-sm-2 control-label">Quantity:</label>
-							<div class="col-sm-9">
-								<input class="form-control" name="qty" id="qty" value="0">
-							</div>
-						</div>
+                    <!-- Asset Quantity -->
+                    <div class="mb-6">
+                        <label for="qty" class="block text-sm font-medium text-gray-700 mb-1">Quantity to Issue</label>
+                        <div class="relative rounded-md shadow-sm">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <i class="fas fa-plus-circle text-gray-400"></i>
+                            </div>
+                            <input type="number" name="qty" id="qty" value="0" step="any" class="form-input block w-full pl-10 pr-12 sm:text-sm border-gray-300 rounded-md focus:ring-blockchain-primary focus:border-blockchain-primary">
+                            <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                <span class="text-gray-500 sm:text-sm">Units</span>
+                            </div>
+                        </div>
+                    </div>
 
-						<div class="form-group">
-							<label for="to" class="col-sm-2 control-label">To address:</label>
-							<div class="col-sm-9">
-							<select class="form-control col-sm-6" name="to" id="to">
+                    <!-- Recipient Address -->
+                    <div class="mb-6">
+                        <label for="to" class="block text-sm font-medium text-gray-700 mb-1">Recipient Address</label>
+                        <div class="relative">
+                            <select name="to" id="to" class="form-select block w-full pl-10 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blockchain-primary focus:border-blockchain-primary rounded-md shadow-sm">
 <?php
-	foreach ($receiveaddresses as $address) {
-		if ($address==$getinfo['burnaddress'])
-			continue;
+    foreach ($receiveaddresses as $address) {
+        if ($address==$getinfo['burnaddress'])
+            continue;
 ?>
-								<option value="<?php echo html($address)?>"><?php echo format_address_html($address, @$keymyaddresses[$address], $labels)?></option>
+                                <option value="<?php echo html($address)?>"><?php echo format_address_html($address, @$keymyaddresses[$address], $labels)?></option>
 <?php
-	}
-?>						
-							</select>
-							</div>
-						</div>
+    }
+?>
+                            </select>
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <i class="fas fa-user text-gray-400"></i>
+                            </div>
+                            <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                <i class="fas fa-chevron-down text-gray-400"></i>
+                            </div>
+                        </div>
+                    </div>
 
-						<div class="form-group">
-							<label for="upload" class="col-sm-2 control-label">Update file:<br/><span style="font-size:75%; font-weight:normal;">Max <?php echo floor($max_upload_size/1024)?> KB</span></label>
-							<div class="col-sm-9">
-								<input class="form-control" type="file" name="upload" id="upload">
-							</div>
-						</div>
-<?php
-	for ($index=0; $index<const_update_custom_fields; $index++) {
-?>
-						<div class="form-group">
-							<label for="key<?php echo $index?>" class="col-sm-2 control-label"><?php echo $index ? '' : 'Update fields:'?></label>
-							<div class="col-sm-3">
-								<input class="form-control input-sm" name="key<?php echo $index?>" id="key<?php echo $index?>" placeholder="key">
-							</div>
-							<div class="col-sm-6">
-								<input class="form-control input-sm" name="value<?php echo $index?>" id="value<?php echo $index?>" placeholder="value">
-							</div>
-						</div>
-<?php
-	}
-?>
-						<div class="form-group">
-							<div class="col-sm-offset-2 col-sm-9">
-								<input class="btn btn-default" type="submit" name="updateasset" value="Update Asset">
-							</div>
-						</div>
-					</form>
+                    <!-- File Upload -->
+                    <div class="mb-6">
+                        <label for="upload" class="block text-sm font-medium text-gray-700 mb-1">Update File</label>
+                        <div class="flex items-center">
+                            <div class="relative flex-grow">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <i class="fas fa-file-upload text-gray-400"></i>
+                                </div>
+                                <input type="file" name="upload" id="upload" class="form-input block w-full pl-10 py-2 text-sm border-gray-300 rounded-md focus:ring-blockchain-primary focus:border-blockchain-primary">
+                            </div>
+                            <div class="ml-2 text-xs text-gray-500 whitespace-nowrap">
+                                Max <?php echo floor($max_upload_size/1024)?> KB
+                            </div>
+                        </div>
+                    </div>
 
-				</div>
-			</div>
+                    <!-- Custom Field Section -->
+                    <div class="mb-6">
+                        <div class="flex items-center mb-3">
+                            <h4 class="text-base font-medium text-gray-700 m-0">Update Metadata Fields</h4>
+                            <div class="flex-grow ml-3 h-px bg-gray-200"></div>
+                        </div>
+
+                        <div class="space-y-3">
+<?php
+    for ($index=0; $index<const_update_custom_fields; $index++) {
+?>
+                            <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
+                                <div class="sm:w-1/3">
+                                    <div class="relative rounded-md shadow-sm">
+                                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                            <i class="fas fa-key text-gray-400"></i>
+                                        </div>
+                                        <input type="text" name="key<?php echo $index?>" id="key<?php echo $index?>" placeholder="Key name" class="focus:ring-blockchain-primary focus:border-blockchain-primary block w-full pl-10 sm:text-sm border-gray-300 rounded-md">
+                                    </div>
+                                </div>
+                                <div class="sm:w-2/3">
+                                    <div class="relative rounded-md shadow-sm">
+                                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                            <i class="fas fa-edit text-gray-400"></i>
+                                        </div>
+                                        <input type="text" name="value<?php echo $index?>" id="value<?php echo $index?>" placeholder="Value" class="focus:ring-blockchain-primary focus:border-blockchain-primary block w-full pl-10 sm:text-sm border-gray-300 rounded-md">
+                                    </div>
+                                </div>
+                            </div>
+<?php
+    }
+?>
+                        </div>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <div class="pt-3">
+                        <button type="submit" name="updateasset" value="1" class="w-full sm:w-auto inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-gradient-button hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blockchain-primary transition duration-150 ease-in-out">
+                            <i class="fas fa-sync-alt mr-2"></i>
+                            Update Asset
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
